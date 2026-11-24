@@ -7,7 +7,7 @@ Inputs
               when you only know the time roughly.
   sources     any mix of
                 --il  <ilpass output folder>   (uses events.jsonl)
-                --bra <bra.py output folder>   (uses data/bhist_events.jsonl, data/bhist_app_events.jsonl,
+                --rf  <rfpass.py output folder> (uses data/bhist_events.jsonl, data/bhist_app_events.jsonl,
                                                 data/bt_sessions.csv, data/bt_media.csv)
 
 Method (fixed before any results were looked at)
@@ -32,7 +32,7 @@ Reading (pre-registered)
     could reach with the incidents it had.
 
 Usage
-  python3 -I corr.py incidents.csv --il out/il-1124 --bra out/bra-1556 --out out/corr-1124
+  python3 -I corr.py incidents.csv --il out/il-1 --rf out/rf-1 --out out/corr-1
                      [--before 120] [--after 60] [--step 10] [--tz America/New_York]
 """
 import argparse
@@ -50,7 +50,7 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("Python 3.9+ required")
 
-VERSION = "0.1.0 (2026-11-24)"
+VERSION = "0.1.1 (2026-11-24)"
 
 
 def sha256_file(p):
@@ -91,7 +91,7 @@ def from_ilpass(folder):
     return out
 
 
-def from_bra(folder, tz):
+def from_rf(folder, tz):
     out = []
     d = os.path.join(folder, "data")
     p = os.path.join(d, "bhist_events.jsonl")
@@ -198,7 +198,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("incidents")
     ap.add_argument("--il", action="append", default=[])
-    ap.add_argument("--bra", action="append", default=[])
+    ap.add_argument("--rf", "--bra", dest="rf", action="append", default=[], help="rfpass.py output folder")
     ap.add_argument("--out", required=True)
     ap.add_argument("--before", type=float, default=120)
     ap.add_argument("--after", type=float, default=60)
@@ -209,14 +209,14 @@ def main():
     a = ap.parse_args()
     if os.path.exists(a.out):
         sys.exit(f"--out {a.out} already exists")
-    if not a.il and not a.bra:
-        sys.exit("give at least one --il or --bra folder")
+    if not a.il and not a.rf:
+        sys.exit("give at least one --il or --rf folder")
     tz = ZoneInfo(a.tz)
     incidents = []
     for r in csv.DictReader(open(a.incidents)):
         incidents.append((to_s(r["time"], tz), r.get("label", r["time"]), float(r.get("precision_s") or 60)))
     srcs = [(f"il:{os.path.basename(os.path.normpath(f))}", from_ilpass(f)) for f in a.il] + \
-           [(f"bra:{os.path.basename(os.path.normpath(f))}", from_bra(f, tz)) for f in a.bra]
+           [(f"rf:{os.path.basename(os.path.normpath(f))}", from_rf(f, tz)) for f in a.rf]
     rows, cov = [], []
     for label, evs in srcs:
         r, c = run(evs, incidents, a.before, a.after, a.step, a.min_events, a.min_incidents, label)

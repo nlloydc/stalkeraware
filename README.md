@@ -24,8 +24,8 @@ If someone else has access to your phone or accounts, they may notice changes: D
 | `snapdiff.py` | bug reports | Records a snapshot of the security-relevant state of each report and lists what changed between two: new apps, certificate swaps, new permissions or app ops, role changes, new admins or trust agents, ADB, users, accounts, settings and the package that wrote them, Wi-Fi networks, Bluetooth bonds |
 | `ilpass.py` | intrusion logs | Completeness (boots, missing event IDs), unlocks (failures, first unlock after boot, night-time), APK-hash continuity (Play update vs system update vs unexplained), network (odd DNS answers, connects without DNS, tunnel/PaaS hosts, locked-night traffic), indicator matching, Bluetooth bursts and the app active just before each |
 | `mitm.py` | bug report, intrusion logs, Chrome NetLog | Man-in-the-middle signs: ARP spoofing and rogue DHCP on Wi-Fi, Android's own connectivity probes (HTTPS failing while HTTP works, DNS answers outside Google's ranges), Private DNS consistency, cellular null ciphers and 2G, DNS-over-TLS redirected elsewhere, certificate-authority installs and validation failures, certificates not issued by a publicly trusted root in Chrome |
-| `bra.py` | bug report | Wireless detail: cellular signal, bands and ciphers; Wi-Fi networks and access points; mobile data while on Wi-Fi; airplane mode; Bluetooth connections, pairing, who initiated, which app held the link; event windows around times you give |
-| `corr.py` | outputs of `ilpass.py` / `bra.py` | Do any logged events cluster around the times you noticed something, more than chance would predict? |
+| `rfpass.py` | bug report | Wireless detail: cellular signal, bands and ciphers; Wi-Fi networks and access points; mobile data while on Wi-Fi; airplane mode; Bluetooth connections, pairing, who initiated, which app held the link; event windows around times you give |
+| `corr.py` | outputs of `ilpass.py` / `rfpass.py` | Do any logged events cluster around the times you noticed something, more than chance would predict? |
 
 ## Running
 
@@ -34,12 +34,12 @@ mkdir -p evidence out states
 cp bugreport-*.zip intrusion-logs.zip evidence/ && chmod 444 evidence/* && sha256sum evidence/*
 
 python3 -I swpass.py   evidence/<bugreport>.zip --out out/sw-1
-python3 -I bra.py      evidence/<bugreport>.zip --out out/bra-1 --event "2026-01-15T10:51:04|what you noticed"
+python3 -I rfpass.py   evidence/<bugreport>.zip --out out/rf-1 --event "2026-01-15T10:51:04|what you noticed"
 python3 -I snapdiff.py snap evidence/<bugreport>.zip -o states/1.json        # keep every state file
 python3 -I snapdiff.py diff states/1.json states/2.json -o out/diff-1-2       # once you have two
 python3 -I ilpass.py   evidence/<intrusion-logs>.zip --out out/il-1
 python3 -I mitm.py     --br evidence/<bugreport>.zip --il out/il-1 [--netlog chrome-net-export.json] --out out/mitm-1
-python3 -I corr.py     incidents.csv --il out/il-1 --bra out/bra-1 --out out/corr-1
+python3 -I corr.py     incidents.csv --il out/il-1 --rf out/rf-1 --out out/corr-1
 ```
 
 `incidents.csv` has a header `time,label,precision_s`: the local time you noticed something, a short label, and how many seconds you might be off by.

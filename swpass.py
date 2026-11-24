@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """swpass.py - stalkerware-footprint pass over an Android bug report (Python 3.9+ standard library only).
 
-Companion to bra.py. Reads the main bugreport-*.txt (or an extracted folder / the .zip) and reports the
+Companion to rfpass.py. Reads the main bugreport-*.txt (or an extracted folder / the .zip) and reports the
 places commercial stalkerware has to leave a footprint:
 
   1. installers        - every user app's installer and initiating installer (non-Play = flag)
