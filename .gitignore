@@ -1,0 +1,11 @@
+evidence/
+out/
+states/
+*.zip
+*.txt.gz
+bugreport-*
+incidents*.csv
+*.btsnoop
+*.pcap*
+*.json
+__pycache__/
