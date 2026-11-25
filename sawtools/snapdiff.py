@@ -5,8 +5,8 @@ Python 3.9+ standard library only.
 A single bug report shows a state; two show a change. A change with a time window ("between report A and
 report B") that nobody explains is better evidence than any setting looked at once.
 
-  snap  <bugreport.zip | bugreport-*.txt>  -o state.json
-  diff  <old: state.json | bugreport>  <new: state.json | bugreport>  -o <new folder>
+  stalkeraware.py snapshot <bugreport.zip | bugreport-*.txt>  -o state.json
+  stalkeraware.py compare  <old: state.json | bugreport>  <new: state.json | bugreport>  -o <new folder>
 
 What a snapshot holds
   packages     version, installer, first install / last update, signing cert, sensitive runtime grants,
@@ -32,6 +32,8 @@ import re
 import sys
 import zipfile
 from datetime import datetime, timezone
+
+from .common import sha256_file, toolkit_sha256
 
 VERSION = "0.1.0 (2026-11-24)"
 SVC_RE = re.compile(r"^DUMP OF SERVICE (?:(?:CRITICAL|HIGH) )?(\S+):\s*$")
@@ -60,14 +62,6 @@ WATCH_SETTINGS = {"adb_enabled", "adb_wifi_enabled", "development_settings_enabl
                   "dialer_default_application", "managed_provisioning_complete", "device_provisioned",
                   "user_setup_complete", "secure_frp_mode", "show_password", "sysui_qs_tiles"}
 SYSTEM_WRITERS = ("android", "com.android.", "com.google.")
-
-
-def sha256_file(p):
-    h = hashlib.sha256()
-    with open(p, "rb") as fh:
-        for b in iter(lambda: fh.read(1 << 20), b""):
-            h.update(b)
-    return h.hexdigest()
 
 
 def read_main(path):
@@ -480,22 +474,22 @@ def diff(A, B, out):
     return T
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = ap.add_subparsers(dest="cmd", required=True)
-    s = sub.add_parser("snap")
+    s = sub.add_parser("snapshot", aliases=["snap"])
     s.add_argument("input")
     s.add_argument("-o", "--out", required=True)
-    d = sub.add_parser("diff")
+    d = sub.add_parser("compare", aliases=["diff"])
     d.add_argument("old")
     d.add_argument("new")
     d.add_argument("-o", "--out", required=True)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if os.path.exists(a.out):
         sys.exit(f"{a.out} already exists")
-    tool = {"tool_sha256": sha256_file(os.path.abspath(__file__)),
+    tool = {"tool_sha256": sha256_file(os.path.abspath(__file__)), "toolkit_sha256": toolkit_sha256(),
             "run_utc": datetime.now(timezone.utc).isoformat(timespec="seconds")}
-    if a.cmd == "snap":
+    if a.cmd in ("snapshot", "snap"):
         st = snapshot(a.input)
         st["meta"].update(tool)
         with open(a.out, "w") as fh:

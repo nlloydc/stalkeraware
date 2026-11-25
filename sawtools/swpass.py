@@ -21,17 +21,18 @@ criteria are printed in the report next to each table; they were fixed before re
 (see PREREGISTERED.md in the repo). Nothing here proves how anything was done.
 
 Usage
-  python3 -I swpass.py <bugreport.zip | folder | bugreport-*.txt> --out <new folder>
+  python3 -I stalkeraware.py stalkerware <bugreport.zip | folder | bugreport-*.txt> --out <new folder>
 """
 import argparse
 import collections
-import hashlib
 import json
 import os
 import re
 import sys
 import zipfile
 from datetime import datetime, timezone
+
+from .common import sha256_file, toolkit_sha256
 
 VERSION = "0.2.0 (2026-11-24)"
 GOOGLE_PREFIXES = ("com.google.", "com.android.", "android")
@@ -57,14 +58,6 @@ SVC_RE = re.compile(r"^DUMP OF SERVICE (?:(?:CRITICAL|HIGH) )?(\S+):\s*$")
 
 def is_google(name):
     return name.startswith(GOOGLE_PREFIXES)
-
-
-def sha256_file(p):
-    h = hashlib.sha256()
-    with open(p, "rb") as fh:
-        for b in iter(lambda: fh.read(1 << 20), b""):
-            h.update(b)
-    return h.hexdigest()
 
 
 def load(path):
@@ -196,15 +189,16 @@ class Rep:
         self.parts.append("\n")
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("input")
     ap.add_argument("--out", required=True)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if os.path.exists(a.out):
         sys.exit(f"--out {a.out} already exists")
     os.makedirs(a.out)
     man = {"tool": "swpass.py", "version": VERSION, "tool_sha256": sha256_file(os.path.abspath(__file__)),
+           "toolkit_sha256": toolkit_sha256(),
            "run_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"), "input": os.path.abspath(a.input)}
     txt = a.input
     if os.path.isfile(txt) and zipfile.is_zipfile(txt):

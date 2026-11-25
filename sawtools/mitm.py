@@ -21,7 +21,7 @@ Checks
                      proxy configuration.
 
 Usage
-  python3 -I mitm.py --br <zip> [--il out/il-x] [--netlog chrome-net-export-log.json] --out <new folder>
+  python3 -I stalkeraware.py mitm --bugreport <zip> [--intrusion-logs out/il-x] [--netlog chrome-net-export-log.json] --out <new folder>
 """
 import argparse
 import collections
@@ -33,6 +33,8 @@ import re
 import sys
 import zipfile
 from datetime import datetime, timezone
+
+from .common import toolkit_sha256
 
 VERSION = "0.1.1 (2026-11-24)"
 # Google's IP space for its probe hosts (connectivitycheck.gstatic.com, www.google.com, *.metric.gstatic.com).
@@ -198,20 +200,23 @@ def parse_probe(msg):
 
 # ------------------------------------------------------------------------------------------ main
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--br")
-    ap.add_argument("--il")
-    ap.add_argument("--netlog")
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--bugreport", dest="br", metavar="BUGREPORT", help="bug report .zip or bugreport-*.txt")
+    ap.add_argument("--intrusion-logs", dest="il", metavar="FOLDER", help="output folder of the intrusion-logs pass")
+    ap.add_argument("--netlog", help="Chrome NetLog JSON (chrome://net-export)")
+    ap.add_argument("--br", dest="br", help=argparse.SUPPRESS)          # earlier names, still accepted
+    ap.add_argument("--il", dest="il", help=argparse.SUPPRESS)
     ap.add_argument("--out", required=True)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if not (a.br or a.il or a.netlog):
-        sys.exit("give --br, --il and/or --netlog")
+        sys.exit("give --bugreport, --intrusion-logs and/or --netlog")
     if os.path.exists(a.out):
         sys.exit(f"--out {a.out} already exists")
     R, T = Rep(), {}
     man = {"tool": "mitm.py", "version": VERSION, "run_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-           "tool_sha256": sha256_bytes(open(os.path.abspath(__file__), "rb").read())}
+           "tool_sha256": sha256_bytes(open(os.path.abspath(__file__), "rb").read()),
+           "toolkit_sha256": toolkit_sha256()}
     R.p("# Man-in-the-middle checks")
     privdns_set = set()
 

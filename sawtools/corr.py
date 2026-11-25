@@ -6,9 +6,9 @@ Inputs
               time is device local ISO ("2026-01-15T10:51:04"); precision_s (default 60) widens the window
               when you only know the time roughly.
   sources     any mix of
-                --il  <ilpass output folder>   (uses events.jsonl)
-                --rf  <rfpass.py output folder> (uses data/bhist_events.jsonl, data/bhist_app_events.jsonl,
-                                                data/bt_sessions.csv, data/bt_media.csv)
+                --intrusion-logs <intrusion-logs pass folder>  (uses events.jsonl)
+                --wireless       <wireless pass folder>        (uses data/bhist_events.jsonl, data/bhist_app_events.jsonl,
+                                                                data/bt_sessions.csv, data/bt_media.csv)
 
 Method (fixed before any results were looked at)
   * Every event gets a "kind": e.g. dns:com.example.music, connect:com.example.rides, sec:app_process_start:com.x,
@@ -32,14 +32,13 @@ Reading (pre-registered)
     could reach with the incidents it had.
 
 Usage
-  python3 -I corr.py incidents.csv --il out/il-1 --rf out/rf-1 --out out/corr-1
+  python3 -I stalkeraware.py correlate incidents.csv --intrusion-logs out/il-1 --wireless out/rf-1 --out out/corr-1
                      [--before 120] [--after 60] [--step 10] [--tz America/New_York]
 """
 import argparse
 import bisect
 import collections
 import csv
-import hashlib
 import json
 import os
 import sys
@@ -50,15 +49,9 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("Python 3.9+ required")
 
+from .common import sha256_file, toolkit_sha256
+
 VERSION = "0.1.1 (2026-11-24)"
-
-
-def sha256_file(p):
-    h = hashlib.sha256()
-    with open(p, "rb") as fh:
-        for b in iter(lambda: fh.read(1 << 20), b""):
-            h.update(b)
-    return h.hexdigest()
 
 
 def to_s(s, tz):
@@ -194,11 +187,13 @@ def run(events, incidents, before, after, step, min_events, min_inc, label):
                   "shifts": shifts, "min_p": 1 / (1 + shifts) if covered else None}
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("incidents")
-    ap.add_argument("--il", action="append", default=[])
-    ap.add_argument("--rf", "--bra", dest="rf", action="append", default=[], help="rfpass.py output folder")
+    ap.add_argument("--intrusion-logs", dest="il", metavar="FOLDER", action="append", default=[], help="intrusion-logs pass output folder")
+    ap.add_argument("--wireless", dest="rf", metavar="FOLDER", action="append", default=[], help="wireless pass output folder")
+    ap.add_argument("--il", dest="il", action="append", help=argparse.SUPPRESS)                 # earlier names, still accepted
+    ap.add_argument("--rf", "--bra", dest="rf", action="append", help=argparse.SUPPRESS)
     ap.add_argument("--out", required=True)
     ap.add_argument("--before", type=float, default=120)
     ap.add_argument("--after", type=float, default=60)
@@ -206,11 +201,11 @@ def main():
     ap.add_argument("--min-events", type=int, default=5)
     ap.add_argument("--min-incidents", type=int, default=3)
     ap.add_argument("--tz", default="America/New_York")
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if os.path.exists(a.out):
         sys.exit(f"--out {a.out} already exists")
     if not a.il and not a.rf:
-        sys.exit("give at least one --il or --rf folder")
+        sys.exit("give at least one --intrusion-logs or --wireless folder")
     tz = ZoneInfo(a.tz)
     incidents = []
     for r in csv.DictReader(open(a.incidents)):
@@ -230,7 +225,7 @@ def main():
     os.makedirs(a.out)
     fmt = lambda s: datetime.fromtimestamp(s, tz=timezone.utc).astimezone(tz).strftime("%m-%d %H:%M:%S")
     P = ["# Incident correlation\n\n",
-         f"corr.py {VERSION} (SHA-256 `{sha256_file(os.path.abspath(__file__))[:16]}…`). Incidents: {len(incidents)} "
+         f"corr.py {VERSION} (SHA-256 `{sha256_file(os.path.abspath(__file__))[:16]}…`, toolkit `{toolkit_sha256()[:16]}…`). Incidents: {len(incidents)} "
          f"from `{os.path.basename(a.incidents)}` (SHA-256 `{sha256_file(a.incidents)[:16]}…`). Window −{a.before:g} s / "
          f"+{a.after:g} s plus each incident's precision. All circular shifts on a {a.step:g} s grid. "
          f"Tested kinds: {len(rows)}.\n\n",

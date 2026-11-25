@@ -20,3 +20,28 @@ Below is the set used for `swpass.py`. Copy it, adjust it to your situation (whi
 | Device admin / accessibility / notification listeners / trust agents | Any entry that isn't a system/Google component or something you enabled | System and Google defaults |
 
 Limits: a clean result rules out known indicators and the common stalkerware footprint on that device at that time. It doesn't exclude implants below the operating system; that's examiner work.
+
+## Added 2026-11-24: battery (`bat`) and camera/microphone (`micam`)
+
+Written before either pass was run on a real report. Thresholds are constants at the top of `sawtools/batpass.py`.
+
+| Check | Look closer | Ordinary |
+|---|---|---|
+| Screen-off drain | An unplugged screen-off span of ≥ 30 min draining ≥ 2× the median of the *other* screen-off stretches and losing ≥ 2 points, where the apps active in it don't explain it | Weak signal (long mobile-radio time), music or navigation, a backup or photo upload, a system update, heat |
+| Per-app background cost (since charge) | A non-Google app in the top 5 for background power or background wakelock time, using GPS, or averaging ≥ 4 wakeup alarms/h, whose function doesn't explain it | Messaging, calling, music, navigation/ride-hailing during a trip, fitness, cloud backup, security apps, launcher, keyboard |
+| Wakelocks over a minute | A non-Google app holding the phone awake for long periods with the screen off and nothing of its own on screen | Music, calls, navigation, downloads, system, Play services |
+| Location requests | A non-Google app with long active, non-foreground requests and no location function | Maps, weather, ride-hailing, delivery, fitness, Find My Device, Play services |
+| Camera sessions | A non-Google app opening a camera while neither on screen nor being opened, or with the screen off | Camera app, video calls, scanners while open, Face Unlock while the screen wakes |
+| Recording sessions | A non-Google app recording from a mic source while neither on screen nor being opened, or with the screen off | Calls and voice notes, voice typing, the assistant and Now Playing (hotword path), playback capture (REMOTE_SUBMIX isn't the mic) |
+| Camera on (battery history) | Camera on with the screen off | Camera on with the camera or a scanner app on screen |
+| App ops, mic/camera | A non-Google app with an Access in background/cached state, or any Reject (an attempt that was refused); an Access from a foreground service you didn't start | Accesses while on screen |
+| At capture | A mic/camera/screen-capture foreground service, open camera client or media projection you didn't start | None, or ones you started |
+
+A use flagged by more than one source (camera service log, battery history, app ops) at the same time is a stronger lead than one source alone. Absence in a source whose span doesn't cover the time means nothing; each report lists the spans.
+
+### Amendment 2026-11-24 (after the first real run)
+
+Two changes to how `battery` applies the rules above; the thresholds themselves are unchanged.
+
+- **Screen-off spans merge glances.** As first written, any screen-on moment split a stretch, so a day of normal use left only 3 rateable stretches. Screen-on glances of ≤ 2 min between screen-off stretches are now merged into one span (the report shows how many and how long). Changed after seeing the first real report's output; the first rule is kept here for the record.
+- **Per-app ranks need ≥ 2 h on battery since the last charge.** That report had 8 minutes since charging, which made a "top 5" meaningless; below 2 h nothing is ranked or flagged, and the report says so.

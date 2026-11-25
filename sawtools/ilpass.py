@@ -24,7 +24,7 @@ Sections
 Each section prints its "look closer" reading next to the table. Nothing here proves how anything was done.
 
 Usage
-  python3 -I ilpass.py <folder | export.zip> --out <new folder>
+  python3 -I stalkeraware.py intrusion-logs <folder | export.zip> --out <new folder>
          [--iocs DIR ...] [--event "2026-01-15T10:08:11|label"] [--before 120] [--after 120]
          [--night 21-04] [--tz America/New_York]
 """
@@ -32,7 +32,6 @@ import argparse
 import bisect
 import collections
 import glob
-import hashlib
 import ipaddress
 import json
 import os
@@ -47,6 +46,8 @@ try:
 except ImportError:  # pragma: no cover
     sys.exit("Python 3.9+ required (zoneinfo)")
 
+from .common import sha256_file, toolkit_sha256
+
 VERSION = "0.1.2 (2026-11-24)"
 SOMETIMES_NUMBERED = ("sec:bluetooth_connection", "sec:bluetooth_disconnection", "sec:keyguard_dismiss_auth_attempt",
                       "sec:keyguard_dismissed", "sec:keyguard_secured")
@@ -55,14 +56,6 @@ PAAS = ("onrender.com", "ngrok", "trycloudflare", "herokuapp", "vercel.app", "ne
         "firebaseio.com", "appspot.com", "web.app")
 SHARED_PROCS = {"android.process.acore", "android.process.media", "com.android.phone", "system"}
 RENDERER = ("sandboxed_process", "webview", "isolated", "privileged_process", "WebViewLoader")
-
-
-def sha256_file(p):
-    h = hashlib.sha256()
-    with open(p, "rb") as fh:
-        for b in iter(lambda: fh.read(1 << 20), b""):
-            h.update(b)
-    return h.hexdigest()
 
 
 class Rep:
@@ -614,8 +607,8 @@ def s_events(R, ev, et, events, before, after):
 
 # ---------------------------------------------------------------------------------------------- main
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+def main(argv=None, prog=None):
+    ap = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("input")
     ap.add_argument("--out", required=True)
     ap.add_argument("--iocs", action="append", default=[], help="folder of STIX2 files (repeatable)")
@@ -626,13 +619,14 @@ def main():
     ap.add_argument("--tz", default="America/New_York")
     ap.add_argument("--burst-gap", type=float, default=10, help="minutes between short connections in one burst")
     ap.add_argument("--burst-min", type=int, default=20)
-    a = ap.parse_args()
+    a = ap.parse_args(argv)
     if os.path.exists(a.out):
         sys.exit(f"--out {a.out} already exists")
     os.makedirs(a.out)
     tz = ZoneInfo(a.tz)
     et, dt = mk_fmt(tz)
     man = {"tool": "ilpass.py", "version": VERSION, "tool_sha256": sha256_file(os.path.abspath(__file__)),
+           "toolkit_sha256": toolkit_sha256(),
            "python": sys.version.split()[0], "run_utc": datetime.now(timezone.utc).isoformat(timespec="seconds"),
            "input": os.path.abspath(a.input), "args": vars(a)}
     src = a.input
